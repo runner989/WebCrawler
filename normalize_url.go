@@ -6,11 +6,14 @@ import (
 )
 
 // normalizeURL accepts a URL string and returns a normalized version of the URL.
-func normalizeURL(input string) (string, error) {
-	parsedURL, err := url.Parse(input)
+func normalizeURL(rawURL string) (string, error) {
+	parsedURL, err := url.Parse(rawURL)
 	if err != nil {
 		return "", err
 	}
+
+	// normalizedURL := parsedURL.Hostname() + strings.TrimSuffix(parsedURL.Path, "/")
+	// return normalizedURL, nil
 
 	// Normalize the host (remove scheme, etc.)
 	host := parsedURL.Hostname()
