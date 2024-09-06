@@ -6,9 +6,6 @@ import (
 )
 
 func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool) {
-	cfg.mu.Lock()
-	defer cfg.mu.Unlock()
-
 	if _, ok := cfg.pages[normalizedURL]; ok {
 		cfg.pages[normalizedURL]++
 		return false
@@ -18,6 +15,12 @@ func (cfg *config) addPageVisit(normalizedURL string) (isFirst bool) {
 	return true
 }
 
+func (cfg *config) pageCount() int {
+	cfg.mu.Lock()
+	defer cfg.mu.Unlock()
+	return len(cfg.pages)
+}
+
 func (cfg *config) crawlPage(rawCurrentURL string) {
 	cfg.concurrencyControl <- struct{}{}
 	defer func() {
@@ -25,28 +28,34 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 		cfg.wg.Done()
 	}()
 
+	if cfg.pageCount() >= cfg.maxPages {
+		return
+	}
+
 	parsedCurrentURL, err := url.Parse(rawCurrentURL)
 	if err != nil {
-		fmt.Printf("error parsing URL: %v\n", err)
+		fmt.Printf("error parsing URL %s: %v\n", rawCurrentURL, err)
 		return
 	}
 	// Ensure URL is on the same domain
 	if cfg.baseURL.Hostname() != parsedCurrentURL.Hostname() {
-		fmt.Printf("baseURL: %s, normalizedURL: %s\n", cfg.baseURL.Hostname(), parsedCurrentURL.Hostname())
-		fmt.Printf("skipping external link: %s\n", rawCurrentURL)
+		// fmt.Printf("skipping external link: %s\n", rawCurrentURL)
 		return
 	}
 
 	normalizedURL, err := normalizeURL(rawCurrentURL)
 	if err != nil {
-		fmt.Printf("error normalizing URL: %v\n", err)
+		fmt.Printf("error normalizing URL %s: %v\n", rawCurrentURL, err)
 		return
 	}
 
+	cfg.mu.Lock()
 	if !cfg.addPageVisit(normalizedURL) {
+		cfg.mu.Unlock()
 		fmt.Printf("already crawled: %s\n", normalizedURL)
 		return
 	}
+	cfg.mu.Unlock()
 
 	fmt.Printf("crawling: %s\n", normalizedURL)
 
@@ -63,6 +72,14 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	}
 
 	for _, foundURL := range foundURLs {
+		// cfg.mu.Lock()
+		// if len(cfg.pages) >= cfg.maxPages {
+		// 	cfg.mu.Unlock()
+		// 	fmt.Println("max pages reached, stopping further crawling")
+		// 	return
+		// }
+		// cfg.mu.Unlock()
+
 		cfg.wg.Add(1)
 		go cfg.crawlPage(foundURL)
 	}
