@@ -52,7 +52,7 @@ func (cfg *config) crawlPage(rawCurrentURL string) {
 	cfg.mu.Lock()
 	if !cfg.addPageVisit(normalizedURL) {
 		cfg.mu.Unlock()
-		fmt.Printf("already crawled: %s\n", normalizedURL)
+		// fmt.Printf("already crawled: %s\n", normalizedURL)
 		return
 	}
 	cfg.mu.Unlock()

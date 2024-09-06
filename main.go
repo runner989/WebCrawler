@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 )
+
+type pageInfo struct {
+	URL   string
+	Count int
+}
 
 type config struct {
 	maxPages           int
@@ -15,6 +21,28 @@ type config struct {
 	mu                 *sync.Mutex
 	concurrencyControl chan struct{}
 	wg                 *sync.WaitGroup
+}
+
+func printReport(pages map[string]int, baseURL string) {
+	var pageList []pageInfo
+	for url, count := range pages {
+		pageList = append(pageList, pageInfo{URL: url, Count: count})
+	}
+
+	sort.Slice(pageList, func(i, j int) bool {
+		if pageList[i].Count == pageList[j].Count {
+			return pageList[i].URL < pageList[j].URL
+		}
+		return pageList[i].Count > pageList[j].Count
+	})
+
+	fmt.Println("=============================")
+	fmt.Printf("  REPORT for %s\n", baseURL)
+	fmt.Println("=============================")
+
+	for _, page := range pageList {
+		fmt.Printf("Found %d internal links to %s\n", page.Count, page.URL)
+	}
 }
 
 func main() {
@@ -61,17 +89,11 @@ func main() {
 
 	cfg.wg.Wait()
 
-	fmt.Println("crawling complete. Pages crawled:")
-	for page, count := range cfg.pages {
-		fmt.Printf("%s: %d\n", page, count)
-	}
-
-	fmt.Printf("max concurrency: %d\n", maxConcurrency)
-	fmt.Printf("max pages: %d\n", maxPages)
-	// html, err := getHTML(baseURL)
-	// if err != nil {
-	// 	fmt.Printf("error fetching HTML: %v\n", err)
-	// 	os.Exit(1)
+	// fmt.Println("crawling complete. Pages crawled:")
+	// for page, count := range cfg.pages {
+	// 	fmt.Printf("%s: %d\n", page, count)
 	// }
-	// fmt.Println(html)
+
+	// Print the report after crawling is complete
+	printReport(cfg.pages, rawBaseURL)
 }
